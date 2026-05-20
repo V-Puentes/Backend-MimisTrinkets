@@ -12,6 +12,32 @@ const { Rol, Usuario } = require('./models');
 app.use(cors());
 app.use(express.json());
 
+// --- Importación de Rutas ---
+const authRoutes = require('./routes/authRoutes');
+const usuarioRoutes = require('./routes/usuarioRoutes');
+const categoriaRoutes = require('./routes/categoriaRoutes');
+const franquiciaRoutes = require('./routes/franquiciaRoutes');
+const productoRoutes = require('./routes/productoRoutes');
+const rolRoutes = require('./routes/rolRoutes');
+const metodoPagoRoutes = require('./routes/metodoPagoRoutes');
+const estadoPedidoRoutes = require('./routes/estadoPedidoRoutes');
+const pedidoRoutes = require('./routes/pedidoRoutes');
+const carritoRoutes = require('./routes/carritoRoutes');
+const checkoutRoutes = require('./routes/checkoutRoutes');
+
+// --- Configuración de Rutas base ---
+app.use('/api/auth', authRoutes);
+app.use('/api/usuarios', usuarioRoutes);
+app.use('/api/categorias', categoriaRoutes);
+app.use('/api/franquicias', franquiciaRoutes);
+app.use('/api/productos', productoRoutes);
+app.use('/api/roles', rolRoutes);
+app.use('/api/metodos-pago', metodoPagoRoutes);
+app.use('/api/estados-pedido', estadoPedidoRoutes);
+app.use('/api/pedidos', pedidoRoutes);
+app.use('/api/carrito', carritoRoutes);
+app.use('/api/checkout', checkoutRoutes);
+
 // Verificación de conexión a PostgreSQL
 const testDBConnection = async () => {
     try {
