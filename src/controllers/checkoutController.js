@@ -1,5 +1,6 @@
 const sequelize = require('../config/database');
 const { Carrito, DetalleCarrito, Producto, Pedido, DetallePedido } = require('../models');
+const { enviarCorreoConfirmacion } = require('../utils/mailer');
 
 const procesarCheckout = async (req, res) => {
     // Se inicia la transacción
@@ -84,8 +85,12 @@ const procesarCheckout = async (req, res) => {
         // 7. Confirmar la transacción
         await t.commit();
 
-        res.status(201).json({ 
-            message: 'Compra procesada exitosamente', 
+        // 8. Enviar correo de confirmación (no bloqueante)
+        enviarCorreoConfirmacion(req.user.email, req.user.nombre, nuevoPedido.ID_PEDIDO, totalConIva)
+            .catch(err => console.error("Fallo silencioso en envío de correo:", err));
+
+        res.status(201).json({
+            message: 'Compra procesada exitosamente',
             pedidoId: nuevoPedido.ID_PEDIDO,
             totalCobrado: totalConIva
         });

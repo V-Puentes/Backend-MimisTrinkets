@@ -20,11 +20,17 @@ source:
     ** rolController.js:crud roles
     ** metodoPagoController.js:crud metodos de pago
     ** estadoPedidoController.js:crud
+    ** reporteController.js: permite construir archivos
 * middlewares
     ** authMiddleware.js: verifica peticiones tengan permisos necesarios
 * routes
     ** authRoutes.js: endpoint al público
     ** los otros routes son para autenticacion mediante middlewares, define que es público y qué privado
+* utils
+    ** mailer.js: servicio para los correos
 
 Sobre el mantenedor de usuarios su acceso es solo para administradores(get, post,put,delete)
 Sobre el mantenedor del catalogo que incluye categorias, franquicias y productos el acceso es mixto, lectura publica (get)y modificacion por admin(post,put,delete)
+
+para los reportes se instala npm install exceljs pdfkit
+para la confirmacion por correo npm install nodemailer

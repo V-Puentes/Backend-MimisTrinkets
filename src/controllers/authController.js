@@ -27,7 +27,9 @@ const login = async (req, res) => {
             {
                 id: usuario.ID_USUARIO,
                 rolId: usuario.ROL_ID,
-                rolNombre: usuario.Rol.NOMBRE_ROL
+                rolNombre: usuario.Rol.NOMBRE_ROL,
+                nombre: usuario.NOMBRE,
+                email: usuario.EMAIL
             },
             process.env.JWT_SECRET,
             { expiresIn: '8h' }

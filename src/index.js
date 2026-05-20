@@ -24,6 +24,7 @@ const estadoPedidoRoutes = require('./routes/estadoPedidoRoutes');
 const pedidoRoutes = require('./routes/pedidoRoutes');
 const carritoRoutes = require('./routes/carritoRoutes');
 const checkoutRoutes = require('./routes/checkoutRoutes');
+const reporteRoutes = require('./routes/reporteRoutes');
 
 // --- Configuración de Rutas base ---
 app.use('/api/auth', authRoutes);
@@ -37,6 +38,7 @@ app.use('/api/estados-pedido', estadoPedidoRoutes);
 app.use('/api/pedidos', pedidoRoutes);
 app.use('/api/carrito', carritoRoutes);
 app.use('/api/checkout', checkoutRoutes);
+app.use('/api/reportes', reporteRoutes);
 
 // Verificación de conexión a PostgreSQL
 const testDBConnection = async () => {
