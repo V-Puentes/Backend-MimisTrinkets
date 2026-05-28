@@ -73,4 +73,27 @@ const quitarDelCarrito = async (req, res) => {
     }
 };
 
-module.exports = { obtenerMiCarrito, agregarAlCarrito, quitarDelCarrito };
+const restarProducto = async (req, res) => {
+    const { PRODUCTO_ID } = req.body;
+    const usuarioId = req.user.id;
+
+    try {
+        const carrito = await Carrito.findOne({ where: { USUARIO_ID: usuarioId } });
+        if (!carrito) return res.status(404).json({ message: 'Carrito no encontrado' });
+
+        const detalle = await DetalleCarrito.findOne({ where: { CARRITO_ID: carrito.ID_CARRITO, PRODUCTO_ID } });
+        
+        if (detalle && detalle.CANTIDAD > 1) {
+            detalle.CANTIDAD -= 1;
+            await detalle.save();
+            res.json({ message: 'Cantidad disminuida' });
+        } else {
+            res.status(400).json({ message: 'La cantidad no puede ser menor a 1' });
+        }
+    } catch (error) {
+        res.status(500).json({ message: 'Error al restar producto', error: error.message });
+    }
+};
+
+// Se incluye restarProducto en el objeto exportado
+module.exports = { obtenerMiCarrito, agregarAlCarrito, quitarDelCarrito, restarProducto };
