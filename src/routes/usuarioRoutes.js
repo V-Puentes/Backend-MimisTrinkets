@@ -1,15 +1,21 @@
 const express = require('express');
 const router = express.Router();
-const { crearUsuario, obtenerUsuarios, actualizarUsuario, eliminarUsuario } = require('../controllers/usuarioController');
+const { 
+    crearUsuario, 
+    obtenerUsuarios, 
+    actualizarUsuario, 
+    actualizarPerfil, 
+    eliminarUsuario 
+} = require('../controllers/usuarioController');
 const { verifyToken, isAdmin } = require('../middlewares/authMiddleware');
 
-// Aplicar protección a todas las rutas de este mantenedor
-router.use(verifyToken, isAdmin);
+router.post('/registro-publico', crearUsuario);
+router.put('/perfil', verifyToken, actualizarPerfil);
 
-// Endpoints: /api/usuarios
-router.post('/', crearUsuario);
-router.get('/', obtenerUsuarios);
-router.put('/:id', actualizarUsuario);
-router.delete('/:id', eliminarUsuario);
+// 2. Rutas generales protegidas por Administrador
+router.post('/', verifyToken, isAdmin, crearUsuario);
+router.get('/', verifyToken, isAdmin, obtenerUsuarios);
+router.put('/:id', verifyToken, isAdmin, actualizarUsuario);
+router.delete('/:id', verifyToken, isAdmin, eliminarUsuario);
 
 module.exports = router;

@@ -1,5 +1,6 @@
 const bcrypt = require('bcryptjs');
 const { Usuario, Rol } = require('../models');
+const jwt = require('jsonwebtoken');
 
 // CREATE
 const crearUsuario = async (req, res) => {
@@ -22,7 +23,7 @@ const crearUsuario = async (req, res) => {
 const obtenerUsuarios = async (req, res) => {
     try {
         const usuarios = await Usuario.findAll({
-            attributes: { exclude: ['PASSWORD_HASH'] }, // Excluir contraseñas de la respuesta
+            attributes: { exclude: ['PASSWORD_HASH'] },
             include: [{ model: Rol, attributes: ['NOMBRE_ROL'] }]
         });
         res.json(usuarios);
@@ -31,7 +32,7 @@ const obtenerUsuarios = async (req, res) => {
     }
 };
 
-// UPDATE
+// UPDATE (Administrador modifica a terceros por ID)
 const actualizarUsuario = async (req, res) => {
     try {
         const { id } = req.params;
@@ -65,4 +66,53 @@ const eliminarUsuario = async (req, res) => {
     }
 };
 
-module.exports = { crearUsuario, obtenerUsuarios, actualizarUsuario, eliminarUsuario };
+const actualizarPerfil = async (req, res) => {
+    try {
+        const idUsuarioLogueado = req.user.id;
+        const { NOMBRE, RUT, DIRECCION } = req.body;
+
+        const usuario = await Usuario.findByPk(idUsuarioLogueado, {
+            include: [{ model: Rol, attributes: ['NOMBRE_ROL'] }]
+        });
+        
+        if (!usuario) {
+            return res.status(404).json({ message: 'Usuario no encontrado.' });
+        }
+
+        // 1. Actualizar el registro en la Base de Datos
+        await usuario.update({ NOMBRE, RUT, DIRECCION });
+
+        // 2. Firmar nuevo token replicando la estructura exacta del authController
+        const token = jwt.sign(
+            {
+                id: usuario.ID_USUARIO,
+                rolId: usuario.ROL_ID,
+                rolNombre: usuario.Rol?.NOMBRE_ROL || 'Cliente',
+                nombre: usuario.NOMBRE,
+                email: usuario.EMAIL,
+                rut: usuario.RUT,          // Inclusión de persistencia para F5
+                direccion: usuario.DIRECCION // Inclusión de persistencia para F5
+            },
+            process.env.JWT_SECRET,
+            { expiresIn: '8h' }
+        );
+
+        // 3. Respuesta JSON consistente con el formato del login
+        res.json({ 
+            message: 'Perfil actualizado correctamente.', 
+            token,
+            usuario: {
+                id: usuario.ID_USUARIO,
+                nombre: usuario.NOMBRE,
+                email: usuario.EMAIL,
+                rut: usuario.RUT,
+                direccion: usuario.DIRECCION,
+                rol: usuario.Rol?.NOMBRE_ROL || 'Cliente'
+            }
+        });
+    } catch (error) {
+        res.status(500).json({ message: 'Error al actualizar el perfil.', error: error.message });
+    }
+};
+
+module.exports = { crearUsuario, obtenerUsuarios, actualizarUsuario, actualizarPerfil, eliminarUsuario };
