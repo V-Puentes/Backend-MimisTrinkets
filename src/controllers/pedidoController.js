@@ -39,14 +39,14 @@ const actualizarEstadoPedido = async (req, res) => {
 // --- CLIENTE ---
 const obtenerMisPedidos = async (req, res) => {
     try {
-        // req.user.id viene del token decodificado
         const pedidos = await Pedido.findAll({
             where: { USUARIO_ID: req.user.id },
             include: [
                 { model: EstadoPedido, attributes: ['NOMBRE_ESTADO'] },
+                { model: MetodoPago, attributes: ['NOMBRE_METODO'] },
                 { 
-                    model: DetallePedido, 
-                    include: [{ model: Producto, attributes: ['NOMBRE_PROD', 'IMAGEN_URL'] }] 
+                    model: DetallePedido,
+                    include: [{ model: Producto, attributes: ['NOMBRE_PROD', 'IMAGEN_URL'] }]
                 }
             ],
             order: [['FECHA_PEDIDO', 'DESC']]

@@ -1,21 +1,49 @@
 const excel = require('exceljs');
 const PDFDocument = require('pdfkit');
-const { Producto, Categoria, Franquicia, Pedido, DetallePedido, Usuario } = require('../models');
+const { Op } = require('sequelize'); // Importación directa del paquete nativo
+const { Producto, Categoria, Franquicia, Pedido, DetallePedido, Usuario, EstadoPedido } = require('../models');
+// =========================================================================
+// REPORTE 1: INVENTARIO Y STOCK CRÍTICO (Filtro por límite de stock opcional)
+// =========================================================================
 
-// --- REPORTE EXCEL: Inventario (Administrador) ---
-const generarReporteInventarioExcel = async (req, res) => {
+// A. JSON para mostrar en la pantalla del Frontend
+const obtenerInventarioJSON = async (req, res) => {
     try {
+        const { limite } = req.query;
+        const infoFiltro = limite ? { STOCK: { [Op.lte]: Number(limite) } } : {};
+
         const productos = await Producto.findAll({
+            where: infoFiltro,
             include: [
                 { model: Categoria, attributes: ['NOMBRE_CAT'] },
                 { model: Franquicia, attributes: ['NOMBRE_FRANQ'] }
-            ]
+            ],
+            order: [['STOCK', 'ASC']]
+        });
+        res.json(productos);
+    } catch (error) {
+        res.status(500).json({ message: 'Error al obtener datos de inventario.', error: error.message });
+    }
+};
+
+// B. Generación de Excel filtrado
+const generarReporteInventarioExcel = async (req, res) => {
+    try {
+        const { limite } = req.query;
+        const infoFiltro = limite ? { STOCK: { [Op.lte]: Number(limite) } } : {};
+
+        const productos = await Producto.findAll({
+            where: infoFiltro,
+            include: [
+                { model: Categoria, attributes: ['NOMBRE_CAT'] },
+                { model: Franquicia, attributes: ['NOMBRE_FRANQ'] }
+            ],
+            order: [['STOCK', 'ASC']]
         });
 
         const workbook = new excel.Workbook();
         const worksheet = workbook.addWorksheet('Inventario');
 
-        // Definición de columnas
         worksheet.columns = [
             { header: 'ID', key: 'id', width: 10 },
             { header: 'Producto', key: 'nombre', width: 40 },
@@ -26,27 +54,24 @@ const generarReporteInventarioExcel = async (req, res) => {
             { header: 'Stock Actual', key: 'stock', width: 15 }
         ];
 
-        // Estilo para la cabecera
         worksheet.getRow(1).font = { bold: true };
 
-        // Inserción de datos
         productos.forEach(prod => {
             worksheet.addRow({
                 id: prod.ID_PRODUCTO,
                 nombre: prod.NOMBRE_PROD,
-                categoria: prod.Categoria ? prod.Categoria.NOMBRE_CAT : 'N/A',
-                franquicia: prod.Franquicia ? prod.Franquicia.NOMBRE_FRANQ : 'N/A',
+                // Corrección de alias relacionales a Categorium y Franquicium
+                categoria: prod.Categorium ? prod.Categorium.NOMBRE_CAT : 'N/A',
+                franquicia: prod.Franquicium ? prod.Franquicium.NOMBRE_FRANQ : 'N/A',
                 precio: prod.PRECIO_PROD,
                 oferta: prod.PORCENTAJE_OFERTA,
                 stock: prod.STOCK
             });
         });
 
-        // Configuración de cabeceras HTTP para forzar la descarga
         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-        res.setHeader('Content-Disposition', 'attachment; filename=' + 'Reporte_Inventario.xlsx');
+        res.setHeader('Content-Disposition', 'attachment; filename=Reporte_Inventario.xlsx');
 
-        // Escribir el buffer y enviarlo
         await workbook.xlsx.write(res);
         res.status(200).end();
     } catch (error) {
@@ -54,11 +79,93 @@ const generarReporteInventarioExcel = async (req, res) => {
     }
 };
 
-// --- REPORTE PDF: Comprobante de Pedido (Cliente/Administrador) ---
+// =========================================================================
+// REPORTE 2: VENTAS POR RANGO DE FECHAS
+// =========================================================================
+
+// A. JSON para mostrar en la pantalla del Frontend
+const obtenerVentasJSON = async (req, res) => {
+    try {
+        const { fechaInicio, fechaFin } = req.query;
+        if (!fechaInicio || !fechaFin) {
+            return res.status(400).json({ message: 'Faltan parámetros de rango de fechas.' });
+        }
+
+        // Configuración segura de objetos Date para evitar fallos de parseo en la BD
+        const inicio = new Date(fechaInicio);
+        const fin = new Date(fechaFin);
+        fin.setHours(23, 59, 59, 999);
+
+        const ventas = await Pedido.findAll({
+            where: {
+                FECHA_PEDIDO: { [Op.between]: [inicio, fin] },
+                ESTADO_ID: { [Op.ne]: 4 } // Excluir cancelados
+            },
+            include: [
+                { model: Usuario, attributes: ['NOMBRE', 'EMAIL'] },
+                { model: EstadoPedido, attributes: ['NOMBRE_ESTADO'] }
+            ],
+            order: [['FECHA_PEDIDO', 'DESC']]
+        });
+        res.json(ventas);
+    } catch (error) {
+        res.status(500).json({ message: 'Error al obtener datos de ventas.', error: error.message });
+    }
+};
+
+const generarVentasPDF = async (req, res) => {
+    try {
+        const { fechaInicio, fechaFin } = req.query;
+        if (!fechaInicio || !fechaFin) {
+            return res.status(400).json({ message: 'Rango de fechas requerido.' });
+        }
+
+        // Configuración segura de objetos Date
+        const inicio = new Date(fechaInicio);
+        const fin = new Date(fechaFin);
+        fin.setHours(23, 59, 59, 999);
+
+        const ventas = await Pedido.findAll({
+            where: {
+                FECHA_PEDIDO: { [Op.between]: [inicio, fin] },
+                ESTADO_ID: { [Op.ne]: 4 }
+            },
+            include: [{ model: Usuario, attributes: ['NOMBRE'] }],
+            order: [['FECHA_PEDIDO', 'ASC']]
+        });
+
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename=Reporte_Ventas_${fechaInicio}_to_${fechaFin}.pdf`);
+
+        const doc = new PDFDocument({ margin: 50 });
+        doc.pipe(res);
+
+        doc.fontSize(20).text('Reporte Consolidado de Ventas', { align: 'center' });
+        doc.fontSize(11).text(`Periodo: ${fechaInicio} al ${fechaFin}`, { align: 'center' });
+        doc.moveDown(2);
+
+        let sumaTotal = 0;
+
+        ventas.forEach(pedido => {
+            doc.fontSize(10).text(`Pedido #${pedido.ID_PEDIDO} | Fecha: ${new Date(pedido.FECHA_PEDIDO).toLocaleDateString()} | Cliente: ${pedido.Usuario?.NOMBRE || 'N/A'}`);
+            doc.text(`Monto Total: $${Number(pedido.TOTAL_CON_IVA).toLocaleString('es-CL')}`, { indent: 20 });
+            doc.moveDown(0.5);
+            sumaTotal += Number(pedido.TOTAL_CON_IVA);
+        });
+
+        doc.moveDown();
+        doc.fontSize(14).text(`Total Recaudado en Periodo: $${sumaTotal.toLocaleString('es-CL')}`, { align: 'right', bold: true });
+
+        doc.end();
+    } catch (error) {
+        res.status(500).json({ message: 'Error al generar PDF.', error: error.message });
+    }
+};
+
+// --- COMPROBANTE INDIVIDUAL (Mantiene su estructura corregida) ---
 const generarComprobantePDF = async (req, res) => {
     try {
         const { id } = req.params;
-
         const pedido = await Pedido.findByPk(id, {
             include: [
                 { model: Usuario, attributes: ['NOMBRE', 'RUT', 'EMAIL'] },
@@ -66,53 +173,44 @@ const generarComprobantePDF = async (req, res) => {
             ]
         });
 
-        if (!pedido) {
-            return res.status(404).json({ message: 'Pedido no encontrado.' });
-        }
+        if (!pedido) return res.status(404).json({ message: 'Pedido no encontrado.' });
 
-        // Validación de seguridad: Solo el administrador o el dueño del pedido pueden descargar el PDF
-        if (req.user.rolId !== 2 && pedido.USUARIO_ID !== req.user.id) {
-            return res.status(403).json({ message: 'Acceso denegado a este documento.' });
-        }
-
-        // Configuración de cabeceras HTTP para PDF
         res.setHeader('Content-Type', 'application/pdf');
         res.setHeader('Content-Disposition', `attachment; filename=Comprobante_Pedido_${pedido.ID_PEDIDO}.pdf`);
 
-        // Inicialización de PDFKit
         const doc = new PDFDocument({ margin: 50 });
         doc.pipe(res);
 
-        // Estructura del Documento
         doc.fontSize(20).text('Comprobante de Venta', { align: 'center' });
         doc.moveDown();
-        
         doc.fontSize(12).text(`N° de Pedido: ${pedido.ID_PEDIDO}`);
         doc.text(`Fecha: ${new Date(pedido.FECHA_PEDIDO).toLocaleDateString()}`);
-        doc.text(`Cliente: ${pedido.Usuario.NOMBRE} (${pedido.Usuario.RUT})`);
-        doc.text(`Dirección de Envío: ${pedido.DIRECCION_ENVIO}`);
+        doc.text(`Cliente: ${pedido.Usuario?.NOMBRE || 'N/A'}`);
         doc.moveDown();
 
         doc.fontSize(14).text('Detalle de Productos:', { underline: true });
         doc.moveDown(0.5);
 
         pedido.DetallePedidos.forEach(item => {
-            doc.fontSize(10).text(`- ${item.Producto.NOMBRE_PROD}`);
-            doc.text(`  Cantidad: ${item.CANTIDAD} | P. Unitario: $${item.PRECIO_UNITARIO}`, { indent: 20 });
+            doc.fontSize(10).text(`- ${item.Producto?.NOMBRE_PROD || 'Producto descontinuado'}`);
+            // Corrección de campo a PRECIO_HISTORICO
+            doc.text(`  Cantidad: ${item.CANTIDAD} | P. Unitario: $${Number(item.PRECIO_HISTORICO).toLocaleString('es-CL')}`, { indent: 20 });
             doc.moveDown(0.5);
         });
 
         doc.moveDown();
-        doc.fontSize(12).text(`Subtotal: $${pedido.SUBTOTAL}`, { align: 'right' });
-        doc.text(`IVA (19%): $${pedido.VALOR_IVA}`, { align: 'right' });
-        doc.fontSize(14).text(`Total Pagado: $${pedido.TOTAL_CON_IVA}`, { align: 'right', bold: true });
+        doc.text(`Total Pagado (IVA Incluido): $${Number(pedido.TOTAL_CON_IVA).toLocaleString('es-CL')}`, { align: 'right', bold: true });
 
-        // Finalizar la escritura del PDF
         doc.end();
-
     } catch (error) {
-        res.status(500).json({ message: 'Error al generar PDF.', error: error.message });
+        res.status(500).json({ message: 'Error al generar comprobante.', error: error.message });
     }
 };
 
-module.exports = { generarReporteInventarioExcel, generarComprobantePDF };
+module.exports = {
+    obtenerInventarioJSON,
+    generarReporteInventarioExcel,
+    obtenerVentasJSON,
+    generarVentasPDF,
+    generarComprobantePDF
+};
