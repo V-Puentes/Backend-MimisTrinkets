@@ -8,6 +8,7 @@ const {
     eliminarUsuario 
 } = require('../controllers/usuarioController');
 const { verifyToken, isAdmin } = require('../middlewares/authMiddleware');
+const { obtenerUsuarioPorId } = require('../controllers/usuarioController');
 
 router.post('/registro-publico', crearUsuario);
 router.put('/perfil', verifyToken, actualizarPerfil);
@@ -17,5 +18,6 @@ router.post('/', verifyToken, isAdmin, crearUsuario);
 router.get('/', verifyToken, isAdmin, obtenerUsuarios);
 router.put('/:id', verifyToken, isAdmin, actualizarUsuario);
 router.delete('/:id', verifyToken, isAdmin, eliminarUsuario);
+router.get('/:id', verifyToken, obtenerUsuarioPorId);
 
 module.exports = router;

@@ -115,4 +115,25 @@ const actualizarPerfil = async (req, res) => {
     }
 };
 
-module.exports = { crearUsuario, obtenerUsuarios, actualizarUsuario, actualizarPerfil, eliminarUsuario };
+const obtenerUsuarioPorId = async (req, res) => {
+    try {
+        const { id } = req.params;
+        
+        // Ajuste esta consulta según el ORM (Sequelize/Prisma) o driver SQL que esté utilizando.
+        // Ejemplo genérico con Sequelize:
+        const usuario = await Usuario.findByPk(id, {
+            attributes: { exclude: ['PASSWORD'] } // Práctica de seguridad: no retornar el hash
+        });
+
+        if (!usuario) {
+            return res.status(404).json({ message: 'Usuario no encontrado' });
+        }
+
+        res.json(usuario);
+    } catch (error) {
+        console.error('Error al obtener usuario:', error);
+        res.status(500).json({ message: 'Error interno del servidor' });
+    }
+};
+
+module.exports = { crearUsuario, obtenerUsuarios, actualizarUsuario, actualizarPerfil, eliminarUsuario, obtenerUsuarioPorId };

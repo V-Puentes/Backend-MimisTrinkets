@@ -26,6 +26,7 @@ const carritoRoutes = require('./routes/carritoRoutes');
 const checkoutRoutes = require('./routes/checkoutRoutes');
 const reporteRoutes = require('./routes/reporteRoutes');
 const transbankRoutes = require('./routes/transbankRoutes');
+const paypalRoutes = require('./routes/paypalRoutes');
 
 // --- Configuración de Rutas base ---
 app.use('/api/auth', authRoutes);
@@ -41,6 +42,7 @@ app.use('/api/carrito', carritoRoutes);
 app.use('/api/checkout', checkoutRoutes);
 app.use('/api/reportes', reporteRoutes);
 app.use('/api/transbank', transbankRoutes);
+app.use('/api/paypal', paypalRoutes);
 
 // Verificación de conexión a PostgreSQL
 const testDBConnection = async () => {
