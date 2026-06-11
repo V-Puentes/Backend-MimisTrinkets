@@ -5,7 +5,7 @@ const {
     obtenerUsuarios, 
     actualizarUsuario, 
     actualizarPerfil, 
-    eliminarUsuario 
+    eliminarUsuario, actualizarRol
 } = require('../controllers/usuarioController');
 const { verifyToken, isAdmin } = require('../middlewares/authMiddleware');
 const { obtenerUsuarioPorId } = require('../controllers/usuarioController');
@@ -19,5 +19,6 @@ router.get('/', verifyToken, isAdmin, obtenerUsuarios);
 router.put('/:id', verifyToken, isAdmin, actualizarUsuario);
 router.delete('/:id', verifyToken, isAdmin, eliminarUsuario);
 router.get('/:id', verifyToken, obtenerUsuarioPorId);
+router.patch('/:id/rol', verifyToken, isAdmin, actualizarRol);
 
 module.exports = router;

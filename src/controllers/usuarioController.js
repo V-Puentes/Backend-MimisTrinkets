@@ -43,9 +43,26 @@ const actualizarUsuario = async (req, res) => {
             return res.status(404).json({ message: 'Usuario no encontrado.' });
         }
 
-        await usuario.update({ NOMBRE, DIRECCION, ROL_ID });
+        // Construcción dinámica del payload de actualización
+        // Solo se asignan los campos que vengan explícitamente en la petición
+        const camposActualizar = {};
+
+        if (NOMBRE !== undefined) camposActualizar.NOMBRE = NOMBRE;
+        if (DIRECCION !== undefined) camposActualizar.DIRECCION = DIRECCION;
+        
+        // El perfil del cliente no enviará ROL_ID, por lo que esta condición lo saltará.
+        // El panel de administrador sí lo enviará, permitiendo la asignación de roles.
+        if (ROL_ID !== undefined) camposActualizar.ROL_ID = parseInt(ROL_ID, 10);
+
+        // Seguridad: Evitar peticiones vacías a la base de datos
+        if (Object.keys(camposActualizar).length === 0) {
+            return res.status(400).json({ message: 'No se proporcionaron datos válidos para la actualización.' });
+        }
+
+        await usuario.update(camposActualizar);
         res.json({ message: 'Usuario actualizado correctamente.' });
     } catch (error) {
+        console.error('Error al actualizar usuario:', error);
         res.status(500).json({ message: 'Error al actualizar usuario.', error: error.message });
     }
 };
@@ -136,4 +153,36 @@ const obtenerUsuarioPorId = async (req, res) => {
     }
 };
 
-module.exports = { crearUsuario, obtenerUsuarios, actualizarUsuario, actualizarPerfil, eliminarUsuario, obtenerUsuarioPorId };
+const actualizarRol = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { ROL_ID } = req.body;
+
+        // Validación de presencia del campo
+        if (ROL_ID === undefined) {
+            return res.status(400).json({ message: 'El campo ROL_ID es obligatorio.' });
+        }
+
+        // Validación de rango de roles permitidos (1: Cliente, 2: Administrador)
+        if (![1, 2].includes(parseInt(ROL_ID, 10))) {
+            return res.status(400).json({ message: 'El ROL_ID proporcionado no es válido.' });
+        }
+
+        const usuario = await Usuario.findByPk(id);
+        if (!usuario) {
+            return res.status(404).json({ message: 'Usuario no encontrado.' });
+        }
+
+        // Actualización exclusiva de la columna ROL_ID
+        await usuario.update({ ROL_ID: parseInt(ROL_ID, 10) });
+        
+        res.json({ message: 'Rol de usuario actualizado correctamente.' });
+    } catch (error) {
+        console.error('Error al actualizar el rol:', error);
+        res.status(500).json({ message: 'Error al actualizar el rol del usuario.', error: error.message });
+    }
+};
+
+module.exports = { crearUsuario, obtenerUsuarios, actualizarUsuario,
+actualizarPerfil, eliminarUsuario, obtenerUsuarioPorId,
+    actualizarRol };
